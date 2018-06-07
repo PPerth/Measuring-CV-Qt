@@ -7,5 +7,7 @@ int main(int argc, char *argv[])
     measuring w;
     w.show();
 
+
+
     return a.exec();
 }

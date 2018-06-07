@@ -249,7 +249,7 @@ measuring::~measuring()
 
 void measuring::on_showImg_clicked()
 {
-    QString path = "E://2.jpg";//ui->imgPath->text();
+    QString path = "E://1.jpg";//ui->imgPath->text();
     image = cv::imread(path.toStdString(), 1);
     mPix = cvMatToQPixmap(image);
     pPix = cvMatToQPixmap(image);
@@ -257,13 +257,43 @@ void measuring::on_showImg_clicked()
 
     ui->imgNormal->setFixedHeight(cvMatToQPixmap(image).height());
     ui->imgNormal->setFixedWidth(cvMatToQPixmap(image).width());
-    //ui->imgNormal->setPixmap(mPix);
 
-    //cv::imshow("Painter",QPixmapToCvMat(mPix));
     cv::imshow("canny",dst);
+
+    ///////canny to array for check pixel/////////
+    cv::Canny(image, dst, 50, 200, 3);
+    int row = dst.rows;
+    int col = dst.cols;
+
+    //printf("%d --- %d\n",col,row);
+
+    int output[row][col];
+    int i=0;
+
+    for (int x = 0;x < col; x++){
+            for (int y = 0; y < row; y++){
+                if(dst.at<uchar>(x,y) == 255)
+                    output[x][y] = 1;
+                else
+                    output[x][y] = 0;
+
+                i++;
+            }
+    }
+
+    /*for (int x = 0;x < col; x++){
+            for (int y = 0; y < row; y++){
+                printf("%d",output[x][y]);
+            }
+            printf("\n");
+    }*/
+    //printf("\n\n%d\n\n",i);
+    //////////////////////////////////////////////
+
 }
 
 void measuring::on_showmPix_clicked()
 {
     cv::imshow("Painter",QPixmapToCvMat(mPix));
+
 }
