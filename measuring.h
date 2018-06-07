@@ -39,7 +39,7 @@ private:
 
     QPainter painter;
     QLine mLine;
-    QPixmap mPix;
+    QPixmap mPix,pPix;
 
 protected:
     void mousePressEvent(QMouseEvent *event);
@@ -49,6 +49,7 @@ protected:
 
 private slots:
     void on_showImg_clicked();
+    void on_showmPix_clicked();
 };
 
 
