@@ -1,6 +1,8 @@
 #ifndef MEASURING_H
 #define MEASURING_H
 
+#include "qcustomplot.h"
+
 #include <QGuiApplication>
 #include <QDialog>
 #include <QtGui>
@@ -49,7 +51,8 @@ protected:
 
 private slots:
     void on_showImg_clicked();
-    void on_showmPix_clicked();
+    void on_showGraph_clicked();
+    void on_smoothSlider_valueChanged(int value);
 };
 
 

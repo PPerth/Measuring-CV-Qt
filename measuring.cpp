@@ -1,18 +1,23 @@
 #include "measuring.h"
 #include "ui_measuring.h"
+#include "qcustomplot.h"
 
 #include <QPixmap>
 #include <QString>
 #include <QMouseEvent>
 #include <QPainter>
-
+#include <iostream>
+#include <vector>
+#include <QDebug>
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
-cv::Mat image,dst,cdst,cdstP;
+cv::Mat image,Limg;
+std::vector<cv::Point> *linePoints;
+cv::Point A,B;
 
 inline QImage  cvMatToQImage( const cv::Mat &inMat )
 {
@@ -153,13 +158,40 @@ inline cv::Mat QImageToCvMat( const QImage &inImage, bool inCloneImageData = tru
       return cv::Mat();
    }
 
-   // If inPixmap exists for the lifetime of the resulting cv::Mat, pass false to inCloneImageData to share inPixmap's data
-   // with the cv::Mat directly
-   //    NOTE: Format_RGB888 is an exception since we need to use a local QImage and thus must clone the data regardless
-   inline cv::Mat QPixmapToCvMat( const QPixmap &inPixmap, bool inCloneImageData = true )
+inline cv::Mat QPixmapToCvMat( const QPixmap &inPixmap, bool inCloneImageData = true )
    {
       return QImageToCvMat( inPixmap.toImage(), inCloneImageData );
    }
+
+int** cvMatToArrays(const cv::Mat &img){
+    int row = img.rows;
+    int col = img.cols;
+    int** arr=0;
+    arr=new int*[row];
+
+    for (int x = 0;x < row; x++){
+        arr[x]=new int[col];
+            for (int y = 0; y < col; y++){
+                if(img.at<uchar>(x,y) == 255)
+                    arr[x][y] = 1;
+                else
+                    arr[x][y] = 0;
+
+                //arr[x][y] = img.at<uchar>(x,y);
+            }
+    }
+    return arr;
+}
+
+int movingAvg(int *ptrArrNumbers, long *ptrSum, int pos, int len, int nextNum)
+{
+  //Subtract the oldest number from the prev sum, add the new number
+  *ptrSum = *ptrSum - ptrArrNumbers[pos] + nextNum;
+  //Assign the nextNum to the position in the array
+  ptrArrNumbers[pos] = nextNum;
+  //return the average
+  return *ptrSum / len;
+}
 
 measuring::measuring(QWidget *parent) :
     QDialog(parent),
@@ -176,15 +208,15 @@ void measuring::mousePressEvent(QMouseEvent *event){
     //Mouse is pressed for the first time
     mousePressed = true;
 
-    mLine.setP1(event->pos()-ui->imgNormal->pos());
-    mLine.setP2(event->pos()-ui->imgNormal->pos());
+    mLine.setP1(event->pos()-ui->imgShow->pos());
+    mLine.setP2(event->pos()-ui->imgShow->pos());
 }
 
 void measuring::mouseMoveEvent(QMouseEvent *event){
     //As mouse is moving set the second point again and again
     // and update continuously
     if(event->type() == QEvent::MouseMove){
-        mLine.setP2(event->pos()-ui->imgNormal->pos());
+        mLine.setP2(event->pos()-ui->imgShow->pos());
     }
     //it calls the paintEven() function continuously
     update();
@@ -195,30 +227,65 @@ void measuring::mouseReleaseEvent(QMouseEvent *event){
     mousePressed = false;
     update();
 
+    A.x=mLine.x1();
+    A.y=mLine.y1();
+    B.x=mLine.x2();
+    B.y=mLine.y2();
     ui->x1->setText(QString::number(mLine.x1()));
     ui->y1->setText(QString::number(mLine.y1()));
     ui->x2->setText(QString::number(mLine.x2()));
     ui->y2->setText(QString::number(mLine.y2()));
 
-//    QPainter tempPainter(&mPix);
-//    tempPainter.drawLine(mLine);
-//    cv::imshow("Painter",QPixmapToCvMat(mPix));
+    //cv::Canny(image, Limg, 50, 200, 3);
+
+    //cv::Mat1b mask(image.size(), uchar(0));
+    //cv::Point A(mLine.x1(),mLine.y1());
+    //cv::Point B(mLine.x2(),mLine.y2());
+
+    //cv::line(mask, A, B, cv::Scalar(255),1);
+
+    //cv::imshow("line",mask);
+    //cv::imshow("canny",Limg);
+
+    //int** cannyArr = cvMatToArrays(Limg);
+    //int** maskArr = cvMatToArrays(mask);
+
+    //////////////find point between canny and mask///////////////////
+    /*int pointX[100],pointY[100];
+    int numP=0;
+
+    for(int x =0;x<Limg.rows;x++)
+        for(int y=0;y<Limg.cols;y++){
+            if(cannyArr[x][y]==maskArr[x][y] && maskArr[x][y]==1 ){
+                pointX[numP] = x;
+                pointY[numP] = y;
+                numP++;
+            }
+        }
+
+    for(int i=0;i<numP;i++){
+        qDebug() <<"("<<pointX[i]<<","<<pointY[i]<<")";
+    }*/
+    ////////////////////////////////////////////////////////////////
+
+
+
 
 }
 
 void measuring::paintEvent(QPaintEvent *event)
 {
-
+    if(!mPix.isNull()){
     painter.begin(this);
-    painter.drawPixmap(ui->imgNormal->x(),ui->imgNormal->y(),mPix);
+    painter.drawPixmap(ui->imgShow->x(),ui->imgShow->y(),mPix);
     //When the mouse is pressed
         if(mousePressed){
             // we are taking QPixmap reference again and again
             //on mouse move and drawing a line again and again
             //hence the painter view has a feeling of dynamic drawing
 
-            mPix = pPix;
-            painter.drawPixmap(ui->imgNormal->x(),ui->imgNormal->y(),mPix);
+           // mPix = pPix;
+            painter.drawPixmap(ui->imgShow->x(),ui->imgShow->y(),mPix);
             painter.drawLine(mLine);
 
             drawStarted = true;
@@ -229,14 +296,15 @@ void measuring::paintEvent(QPaintEvent *event)
             // using that object, then sets the earlier painter object
             // with the newly modified QPixmap object
 
-            QPainter tempPainter(&mPix);
+            /*QPainter tempPainter(&mPix);
             tempPainter.drawLine(mLine);
             //cv::imshow("Painter",QPixmapToCvMat(mPix));
-            painter.drawPixmap(ui->imgNormal->x(),ui->imgNormal->y(),mPix);
+            painter.drawPixmap(ui->imgShow->x(),ui->imgShow->y(),mPix);*/
 
         }
 
         painter.end();
+    }
 
 
 }
@@ -249,51 +317,91 @@ measuring::~measuring()
 
 void measuring::on_showImg_clicked()
 {
-    QString path = "E://1.jpg";//ui->imgPath->text();
-    image = cv::imread(path.toStdString(), 1);
+    QString path = "E://4.jpg";//ui->imgPath->text();
+    image = cv::imread(path.toStdString(), 0);
+
     mPix = cvMatToQPixmap(image);
-    pPix = cvMatToQPixmap(image);
-    cv::Canny(image, dst, 50, 200, 3);
+    //pPix = cvMatToQPixmap(image);
+    //cv::Canny(image, dst, 50, 200, 3);
 
-    ui->imgNormal->setFixedHeight(cvMatToQPixmap(image).height());
-    ui->imgNormal->setFixedWidth(cvMatToQPixmap(image).width());
+    ui->imgShow->setFixedHeight(cvMatToQPixmap(image).height());
+    ui->imgShow->setFixedWidth(cvMatToQPixmap(image).width());
+    //ui->imgShow->setPixmap(cvMatToQPixmap(image));
 
-    cv::imshow("canny",dst);
-
-    ///////canny to array for check pixel/////////
-    cv::Canny(image, dst, 50, 200, 3);
-    int row = dst.rows;
-    int col = dst.cols;
-
-    //printf("%d --- %d\n",col,row);
-
-    int output[row][col];
-    int i=0;
-
-    for (int x = 0;x < col; x++){
-            for (int y = 0; y < row; y++){
-                if(dst.at<uchar>(x,y) == 255)
-                    output[x][y] = 1;
-                else
-                    output[x][y] = 0;
-
-                i++;
-            }
-    }
-
-    /*for (int x = 0;x < col; x++){
-            for (int y = 0; y < row; y++){
-                printf("%d",output[x][y]);
-            }
-            printf("\n");
-    }*/
-    //printf("\n\n%d\n\n",i);
-    //////////////////////////////////////////////
+    //cv::imshow("canny",dst);
 
 }
 
-void measuring::on_showmPix_clicked()
-{
-    cv::imshow("Painter",QPixmapToCvMat(mPix));
 
+void measuring::on_showGraph_clicked()
+{
+    cv::LineIterator it(image, A, B, 8 ,true);//'true' is left to right ,not order
+    std::vector<cv::Vec3b> buf(it.count);
+    //std::vector<cv::Point> Points(it.count);
+    linePoints = new std::vector<cv::Point>(it.count);
+    //buf.size()=it.count;
+
+    QVector<double> axisY(linePoints->size());
+    QVector<double> axisX(linePoints->size());
+
+    for(int i = 0; i < it.count; i++, ++it)
+    {
+        buf[i] = (const cv::Vec3b)*it;
+        linePoints->at(i) = it.pos();
+     //   qDebug() << points[i].x<<points[i].y;
+    }
+
+    for(int i =0;i<linePoints->size();i++){
+        axisX[i] = linePoints->at(i).x; // point.x
+        axisY[i]=image.at<uchar>(linePoints->at(i));// pixel color
+        qDebug() << axisX[i] << axisY[i];
+
+    }
+
+    ui->customPlot->addGraph();
+    ui->customPlot->graph(0)->setData(axisX,axisY);
+    ui->customPlot->xAxis->setLabel("X");
+    ui->customPlot->yAxis->setLabel("Y");
+    ui->customPlot->xAxis->setRange(A.x,B.x); // base on X
+    ui->customPlot->yAxis->setRange(0,256); //color 0-255
+    ui->customPlot->replot();
+
+    ui->smoothSlider->setEnabled(true);
+
+}
+
+void measuring::on_smoothSlider_valueChanged(int value)
+{
+    std::vector<cv::Point> newCurve(linePoints->size());
+    std::vector<double> axisX(linePoints->size());
+    std::vector<double> axisY(linePoints->size());
+
+    for(int i =0;i<linePoints->size();i++){
+        newCurve[i].x=linePoints->at(i).x;
+        newCurve[i].y=image.at<uchar>(linePoints->at(i));
+    }
+
+    int arrNumbers[value] = {0};
+
+    int pos = 0;
+    int newAvg[newCurve.size()];
+    long sum = 0;
+    int len = sizeof(arrNumbers) / sizeof(int);
+    int count = newCurve.size();
+
+    for(int i = 0; i < count; i++){
+        newAvg[i] = movingAvg(arrNumbers, &sum, pos, len, newCurve[i].y);
+        //qDebug() << "The new average is" << newAvg[i] <<i;
+        pos++;
+        if (pos >= len){
+            pos = 0;
+        }
+    }
+
+   for(int i =0;i<linePoints->size();i++){
+        axisX[i] = newCurve[i].x;
+        axisY[i] = newAvg[i];
+   }
+   ui->customPlot->graph(0)->setData(QVector<double>::fromStdVector(axisX),QVector<double>::fromStdVector(axisY));
+   ui->customPlot->replot();
 }
