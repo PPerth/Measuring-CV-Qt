@@ -41,13 +41,13 @@ private:
 
     QPainter painter;
     QLine mLine;
-    QPixmap mPix,pPix;
+    QPixmap mPix,pPix,tmp_pix;
 
 protected:
     void mousePressEvent(QMouseEvent *event);
     void mouseMoveEvent(QMouseEvent *event);
     void mouseReleaseEvent(QMouseEvent *event);
-    void paintEvent(QPaintEvent *event);
+    //void paintEvent(QPaintEvent *event);
 
 private slots:
     void on_showImg_clicked();

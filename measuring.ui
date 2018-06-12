@@ -18,9 +18,12 @@
     <rect>
      <x>40</x>
      <y>40</y>
-     <width>201</width>
-     <height>131</height>
+     <width>521</width>
+     <height>331</height>
     </rect>
+   </property>
+   <property name="lineWidth">
+    <number>1</number>
    </property>
    <property name="text">
     <string/>
@@ -76,6 +79,9 @@
    </layout>
   </widget>
   <widget class="QPushButton" name="showGraph">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="geometry">
     <rect>
      <x>250</x>

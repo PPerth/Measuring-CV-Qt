@@ -17,7 +17,8 @@
 
 cv::Mat image,Limg;
 std::vector<cv::Point> *linePoints;
-cv::Point A,B;
+cv::Point A,B,line_begin;
+
 
 inline QImage  cvMatToQImage( const cv::Mat &inMat )
 {
@@ -200,41 +201,126 @@ measuring::measuring(QWidget *parent) :
     ui->setupUi(this);
 
     mousePressed = false;
-    drawStarted = false;
+//    drawStarted = false;
 
 }
 
 void measuring::mousePressEvent(QMouseEvent *event){
-    //Mouse is pressed for the first time
-    mousePressed = true;
 
-    mLine.setP1(event->pos()-ui->imgShow->pos());
-    mLine.setP2(event->pos()-ui->imgShow->pos());
+    if(!image.empty()){
+        ui->imgShow->setPixmap(mPix);
+        ui->imgShow->setAlignment(Qt::AlignCenter);
+        tmp_pix = mPix;
+
+        int dis_x = ( ui->imgShow->width() - ui->imgShow->pixmap()->width() ) / 2;
+        int dis_y = ( ui->imgShow->height() - ui->imgShow->pixmap()->height() ) / 2;
+        int x = event->pos().x() - ui->imgShow->pos().x() - dis_x;
+        int y = event->pos().y() - ui->imgShow->pos().y() - dis_y;
+
+        if( x < 0 || y < 0 ||
+            x > ui->imgShow->pixmap()->width() ||
+            y > ui->imgShow->pixmap()->height() )
+        {}
+        else
+        {
+            line_begin.x=x;
+            line_begin.y=y;
+            mousePressed = true;
+        }
+    }
+
+
+
+//Mouse is pressed for the first time
+//    mousePressed = true;
+
+//    mLine.setP1(event->pos()-ui->imgShow->pos());
+//    mLine.setP2(event->pos()-ui->imgShow->pos());
 }
 
 void measuring::mouseMoveEvent(QMouseEvent *event){
+
+    if(!image.empty() && mousePressed){
+        ui->imgShow->setPixmap(mPix);
+        ui->imgShow->setAlignment(Qt::AlignCenter);
+        tmp_pix = mPix;
+
+        int dis_x = ( ui->imgShow->width() - ui->imgShow->pixmap()->width() ) / 2;
+        int dis_y = ( ui->imgShow->height() - ui->imgShow->pixmap()->height() ) / 2;
+        int x = event->pos().x() - ui->imgShow->pos().x() - dis_x;
+        int y = event->pos().y() - ui->imgShow->pos().y() - dis_y;
+
+        if( x < 0 || y < 0 ||
+            x > ui->imgShow->pixmap()->width() ||
+            y > ui->imgShow->pixmap()->height() )
+        {}
+        else
+        {
+            mLine.setLine(line_begin.x,line_begin.y,x,y);
+
+            QPainter *paint = new QPainter(&tmp_pix);
+            paint->setPen(QColor(255,34,255,255));
+            paint->drawLine(mLine);
+            delete paint;
+            ui->imgShow->setPixmap(tmp_pix);
+            ui->imgShow->setAlignment(Qt::AlignCenter);
+        }
+    }
+
     //As mouse is moving set the second point again and again
     // and update continuously
-    if(event->type() == QEvent::MouseMove){
-        mLine.setP2(event->pos()-ui->imgShow->pos());
-    }
+//    if(event->type() == QEvent::MouseMove){
+//        mLine.setP2(event->pos()-ui->imgShow->pos());
+//    }
     //it calls the paintEven() function continuously
-    update();
+//    update();
 }
 
 void measuring::mouseReleaseEvent(QMouseEvent *event){
-    //When mouse is released update for the one last time
-    mousePressed = false;
-    update();
 
-    A.x=mLine.x1();
-    A.y=mLine.y1();
-    B.x=mLine.x2();
-    B.y=mLine.y2();
-    ui->x1->setText(QString::number(mLine.x1()));
-    ui->y1->setText(QString::number(mLine.y1()));
-    ui->x2->setText(QString::number(mLine.x2()));
-    ui->y2->setText(QString::number(mLine.y2()));
+    if(!image.empty() && mousePressed){
+        ui->imgShow->setPixmap(cvMatToQPixmap(image));
+        ui->imgShow->setAlignment(Qt::AlignCenter);
+        tmp_pix = cvMatToQPixmap(image);
+
+        int dis_x = ( ui->imgShow->width() - ui->imgShow->pixmap()->width() ) / 2;
+        int dis_y = ( ui->imgShow->height() - ui->imgShow->pixmap()->height() ) / 2;
+        int x = event->pos().x() - ui->imgShow->pos().x() - dis_x;
+        int y = event->pos().y() - ui->imgShow->pos().y() - dis_y;
+
+        if( x < 0 || y < 0 ||
+            x > ui->imgShow->pixmap()->width() ||
+            y > ui->imgShow->pixmap()->height() )
+        {}
+        else
+        {
+            mLine.setLine(line_begin.x,line_begin.y,x,y);
+
+            QPainter *paint = new QPainter(&tmp_pix);
+            paint->setPen(QColor(255,34,255,255));
+            paint->drawLine(mLine);
+            delete paint;
+            ui->imgShow->setPixmap(tmp_pix);
+            ui->imgShow->setAlignment(Qt::AlignCenter);
+
+            A.x=mLine.x1();
+            A.y=mLine.y1();
+            B.x=mLine.x2();
+            B.y=mLine.y2();
+            ui->x1->setText(QString::number(mLine.x1()));
+            ui->y1->setText(QString::number(mLine.y1()));
+            ui->x2->setText(QString::number(mLine.x2()));
+            ui->y2->setText(QString::number(mLine.y2()));
+
+            ui->showGraph->setEnabled(true);
+        }
+    }
+
+
+    //When mouse is released update for the one last time
+//    mousePressed = false;
+ //   update();
+
 
     //cv::Canny(image, Limg, 50, 200, 3);
 
@@ -273,41 +359,41 @@ void measuring::mouseReleaseEvent(QMouseEvent *event){
 
 }
 
-void measuring::paintEvent(QPaintEvent *event)
-{
-    if(!mPix.isNull()){
-    painter.begin(this);
-    painter.drawPixmap(ui->imgShow->x(),ui->imgShow->y(),mPix);
-    //When the mouse is pressed
-        if(mousePressed){
-            // we are taking QPixmap reference again and again
-            //on mouse move and drawing a line again and again
-            //hence the painter view has a feeling of dynamic drawing
+//void measuring::paintEvent(QPaintEvent *event)
+//{
+//    if(!mPix.isNull()){
+//    painter.begin(this);
+//    painter.drawPixmap(ui->imgShow->x(),ui->imgShow->y(),mPix);
+//    //When the mouse is pressed
+//        if(mousePressed){
+//            // we are taking QPixmap reference again and again
+//            //on mouse move and drawing a line again and again
+//            //hence the painter view has a feeling of dynamic drawing
 
-           // mPix = pPix;
-            painter.drawPixmap(ui->imgShow->x(),ui->imgShow->y(),mPix);
-            painter.drawLine(mLine);
+//           // mPix = pPix;
+//            painter.drawPixmap(ui->imgShow->x(),ui->imgShow->y(),mPix);
+//            painter.drawLine(mLine);
 
-            drawStarted = true;
-        }
-        else if (drawStarted){
-            // It created a QPainter object by taking  a reference
-            // to the QPixmap object created earlier, then draws a line
-            // using that object, then sets the earlier painter object
-            // with the newly modified QPixmap object
+//            drawStarted = true;
+//        }
+//        else if (drawStarted){
+//            // It created a QPainter object by taking  a reference
+//            // to the QPixmap object created earlier, then draws a line
+//            // using that object, then sets the earlier painter object
+//            // with the newly modified QPixmap object
 
-            /*QPainter tempPainter(&mPix);
-            tempPainter.drawLine(mLine);
-            //cv::imshow("Painter",QPixmapToCvMat(mPix));
-            painter.drawPixmap(ui->imgShow->x(),ui->imgShow->y(),mPix);*/
+//            /*QPainter tempPainter(&mPix);
+//            tempPainter.drawLine(mLine);
+//            //cv::imshow("Painter",QPixmapToCvMat(mPix));
+//            painter.drawPixmap(ui->imgShow->x(),ui->imgShow->y(),mPix);*/
 
-        }
+//        }
 
-        painter.end();
-    }
+//        painter.end();
+//    }
 
 
-}
+//}
 
 
 measuring::~measuring()
@@ -324,9 +410,10 @@ void measuring::on_showImg_clicked()
     //pPix = cvMatToQPixmap(image);
     //cv::Canny(image, dst, 50, 200, 3);
 
-    ui->imgShow->setFixedHeight(cvMatToQPixmap(image).height());
-    ui->imgShow->setFixedWidth(cvMatToQPixmap(image).width());
-    //ui->imgShow->setPixmap(cvMatToQPixmap(image));
+    //ui->imgShow->setFixedHeight(cvMatToQPixmap(image).height());
+    //ui->imgShow->setFixedWidth(cvMatToQPixmap(image).width());
+    ui->imgShow->setPixmap(mPix);
+    ui->imgShow->setAlignment(Qt::AlignCenter);
 
     //cv::imshow("canny",dst);
 
