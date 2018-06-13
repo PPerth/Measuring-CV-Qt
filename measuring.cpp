@@ -208,21 +208,23 @@ measuring::measuring(QWidget *parent) :
 void measuring::mousePressEvent(QMouseEvent *event){
 
     if(!image.empty()){
-        ui->imgShow->setPixmap(mPix);
-        ui->imgShow->setAlignment(Qt::AlignCenter);
+
         tmp_pix = mPix;
 
-        int dis_x = ( ui->imgShow->width() - ui->imgShow->pixmap()->width() ) / 2;
-        int dis_y = ( ui->imgShow->height() - ui->imgShow->pixmap()->height() ) / 2;
+        int dis_x = ( ui->imgShow->width() - tmp_pix.width() ) / 2;
+        int dis_y = ( ui->imgShow->height() - tmp_pix.height() ) / 2;
         int x = event->pos().x() - ui->imgShow->pos().x() - dis_x;
         int y = event->pos().y() - ui->imgShow->pos().y() - dis_y;
 
         if( x < 0 || y < 0 ||
-            x > ui->imgShow->pixmap()->width() ||
-            y > ui->imgShow->pixmap()->height() )
+            x > tmp_pix.width() ||
+            y > tmp_pix.height() )
         {}
         else
         {
+            ui->imgShow->setPixmap(tmp_pix);
+            ui->imgShow->setAlignment(Qt::AlignCenter);
+
             line_begin.x=x;
             line_begin.y=y;
             mousePressed = true;
@@ -253,7 +255,10 @@ void measuring::mouseMoveEvent(QMouseEvent *event){
         if( x < 0 || y < 0 ||
             x > ui->imgShow->pixmap()->width() ||
             y > ui->imgShow->pixmap()->height() )
-        {}
+        {
+            line_begin.x = 0;
+            line_begin.y = 0;
+        }
         else
         {
             mLine.setLine(line_begin.x,line_begin.y,x,y);
@@ -317,7 +322,7 @@ void measuring::mouseReleaseEvent(QMouseEvent *event){
     }
 
 
-    //When mouse is released update for the one last time
+    /*When mouse is released update for the one last time
 //    mousePressed = false;
  //   update();
 
@@ -337,7 +342,7 @@ void measuring::mouseReleaseEvent(QMouseEvent *event){
     //int** maskArr = cvMatToArrays(mask);
 
     //////////////find point between canny and mask///////////////////
-    /*int pointX[100],pointY[100];
+    int pointX[100],pointY[100];
     int numP=0;
 
     for(int x =0;x<Limg.rows;x++)
@@ -359,7 +364,7 @@ void measuring::mouseReleaseEvent(QMouseEvent *event){
 
 }
 
-//void measuring::paintEvent(QPaintEvent *event)
+/*void measuring::paintEvent(QPaintEvent *event)
 //{
 //    if(!mPix.isNull()){
 //    painter.begin(this);
@@ -385,7 +390,7 @@ void measuring::mouseReleaseEvent(QMouseEvent *event){
 //            /*QPainter tempPainter(&mPix);
 //            tempPainter.drawLine(mLine);
 //            //cv::imshow("Painter",QPixmapToCvMat(mPix));
-//            painter.drawPixmap(ui->imgShow->x(),ui->imgShow->y(),mPix);*/
+//            painter.drawPixmap(ui->imgShow->x(),ui->imgShow->y(),mPix);
 
 //        }
 
@@ -393,7 +398,7 @@ void measuring::mouseReleaseEvent(QMouseEvent *event){
 //    }
 
 
-//}
+//}*/
 
 
 measuring::~measuring()
@@ -403,7 +408,8 @@ measuring::~measuring()
 
 void measuring::on_showImg_clicked()
 {
-    QString path = "E://4.jpg";//ui->imgPath->text();
+    //QString path = "E://5.jpg";//ui->imgPath->text();
+    QString path = QFileDialog::getOpenFileName(this,tr("Open File"),"E://ProjectPictures","JPEG(*.jpg);;PNG(*.png);;Bitmap(*.bmp)");
     image = cv::imread(path.toStdString(), 0);
 
     mPix = cvMatToQPixmap(image);
@@ -459,7 +465,7 @@ void measuring::on_showGraph_clicked()
 
 void measuring::on_smoothSlider_valueChanged(int value)
 {
-    std::vector<cv::Point> newCurve(linePoints->size());
+    /*std::vector<cv::Point> newCurve(linePoints->size());
     std::vector<double> axisX(linePoints->size());
     std::vector<double> axisY(linePoints->size());
 
@@ -488,7 +494,24 @@ void measuring::on_smoothSlider_valueChanged(int value)
    for(int i =0;i<linePoints->size();i++){
         axisX[i] = newCurve[i].x;
         axisY[i] = newAvg[i];
-   }
-   ui->customPlot->graph(0)->setData(QVector<double>::fromStdVector(axisX),QVector<double>::fromStdVector(axisY));
-   ui->customPlot->replot();
+   }*/
+
+    if(value%2!=0 && value!=1){
+        int MAX_KERNEL_LENGTH = value;
+        cv::Mat blur_img;
+        for ( int i = 1; i < MAX_KERNEL_LENGTH; i = i + 2 ){
+            cv::GaussianBlur(image,blur_img,cv::Size(i,i),0,0);
+        }
+        QVector<double> axisX(linePoints->size());
+        QVector<double> axisY(linePoints->size());
+
+        for(int i =0;i<linePoints->size();i++){
+            axisX[i] = linePoints->at(i).x;
+            axisY[i] = blur_img.at<uchar>(linePoints->at(i));
+        }
+
+       //ui->customPlot->graph(0)->setData(QVector<double>::fromStdVector(axisX),QVector<double>::fromStdVector(axisY));
+       ui->customPlot->graph(0)->setData(axisX,axisY);
+       ui->customPlot->replot();
+    }
 }
