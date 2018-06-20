@@ -1,6 +1,8 @@
 #include "measuring.h"
 #include "ui_measuring.h"
 #include "qcustomplot.h"
+#include "persistence1d.hpp"
+#include "spline.h"
 
 #include <QPixmap>
 #include <QString>
@@ -15,8 +17,9 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
-cv::Mat image,Limg;
-std::vector<cv::Point> *linePoints;
+//cv::Mat Limg;
+std::vector<cv::Point> *linePoints,         //point from mouse move
+                       *smooth_linePoints;  //point that smoothed
 cv::Point A,B,line_begin;
 
 
@@ -184,15 +187,6 @@ int** cvMatToArrays(const cv::Mat &img){
     return arr;
 }
 
-int movingAvg(int *ptrArrNumbers, long *ptrSum, int pos, int len, int nextNum)
-{
-  //Subtract the oldest number from the prev sum, add the new number
-  *ptrSum = *ptrSum - ptrArrNumbers[pos] + nextNum;
-  //Assign the nextNum to the position in the array
-  ptrArrNumbers[pos] = nextNum;
-  //return the average
-  return *ptrSum / len;
-}
 
 measuring::measuring(QWidget *parent) :
     QDialog(parent),
@@ -201,7 +195,6 @@ measuring::measuring(QWidget *parent) :
     ui->setupUi(this);
 
     mousePressed = false;
-//    drawStarted = false;
 
 }
 
@@ -230,14 +223,6 @@ void measuring::mousePressEvent(QMouseEvent *event){
             mousePressed = true;
         }
     }
-
-
-
-//Mouse is pressed for the first time
-//    mousePressed = true;
-
-//    mLine.setP1(event->pos()-ui->imgShow->pos());
-//    mLine.setP2(event->pos()-ui->imgShow->pos());
 }
 
 void measuring::mouseMoveEvent(QMouseEvent *event){
@@ -256,8 +241,8 @@ void measuring::mouseMoveEvent(QMouseEvent *event){
             x > ui->imgShow->pixmap()->width() ||
             y > ui->imgShow->pixmap()->height() )
         {
-            line_begin.x = 0;
-            line_begin.y = 0;
+            line_begin.x = NULL;
+            line_begin.y = NULL;
         }
         else
         {
@@ -271,14 +256,6 @@ void measuring::mouseMoveEvent(QMouseEvent *event){
             ui->imgShow->setAlignment(Qt::AlignCenter);
         }
     }
-
-    //As mouse is moving set the second point again and again
-    // and update continuously
-//    if(event->type() == QEvent::MouseMove){
-//        mLine.setP2(event->pos()-ui->imgShow->pos());
-//    }
-    //it calls the paintEven() function continuously
-//    update();
 }
 
 void measuring::mouseReleaseEvent(QMouseEvent *event){
@@ -312,6 +289,7 @@ void measuring::mouseReleaseEvent(QMouseEvent *event){
             A.y=mLine.y1();
             B.x=mLine.x2();
             B.y=mLine.y2();
+
             ui->x1->setText(QString::number(mLine.x1()));
             ui->y1->setText(QString::number(mLine.y1()));
             ui->x2->setText(QString::number(mLine.x2()));
@@ -364,41 +342,113 @@ void measuring::mouseReleaseEvent(QMouseEvent *event){
 
 }
 
-/*void measuring::paintEvent(QPaintEvent *event)
-//{
-//    if(!mPix.isNull()){
-//    painter.begin(this);
-//    painter.drawPixmap(ui->imgShow->x(),ui->imgShow->y(),mPix);
-//    //When the mouse is pressed
-//        if(mousePressed){
-//            // we are taking QPixmap reference again and again
-//            //on mouse move and drawing a line again and again
-//            //hence the painter view has a feeling of dynamic drawing
+void findPeak(std::vector<double> &smoothY,std::vector<double> &outputX,std::vector<double> &outputY,int distanceAmpi){
+    //qDebug() << "Gooooooooooooooooooooooood";
+    std::vector<float> dataY(smoothY.size());
 
-//           // mPix = pPix;
-//            painter.drawPixmap(ui->imgShow->x(),ui->imgShow->y(),mPix);
-//            painter.drawLine(mLine);
+    for(int i =0;i<smoothY.size();i++){
+        dataY[i]=smoothY[i];
+    }
 
-//            drawStarted = true;
-//        }
-//        else if (drawStarted){
-//            // It created a QPainter object by taking  a reference
-//            // to the QPixmap object created earlier, then draws a line
-//            // using that object, then sets the earlier painter object
-//            // with the newly modified QPixmap object
+    outputX.clear();
+    outputY.clear();
 
-//            /*QPainter tempPainter(&mPix);
-//            tempPainter.drawLine(mLine);
-//            //cv::imshow("Painter",QPixmapToCvMat(mPix));
-//            painter.drawPixmap(ui->imgShow->x(),ui->imgShow->y(),mPix);
+    p1d::Persistence1D p;
+    p.RunPersistence(dataY);
 
-//        }
+    std::vector< p1d::TPairedExtrema > Extrema;
+    p.GetPairedExtrema(Extrema, distanceAmpi);
 
-//        painter.end();
-//    }
+    for(std::vector< p1d::TPairedExtrema >::iterator it2 = Extrema.begin(); it2 != Extrema.end(); it2++)
+        {
+            outputX.push_back((*it2).MaxIndex);
+            outputX.push_back((*it2).MinIndex);
+
+        }
+        outputX.push_back(p.GetGlobalMinimumIndex());
+
+        std::sort(outputX.begin(),outputX.end());
+
+        for(int i=0 ;i<outputX.size() ;i++){
+            outputY.push_back(dataY[outputX[i]]);
+            //axisY.push_back(dataY[(*it2).MinIndex]);
+        }
+        //axisY.push_back(dataY[p.GetGlobalMinimumIndex()]);
+}
+
+std::vector<double> linspace(double a, double b, int n) {
+    std::vector<double> array;
+    double step = (b-a) / (n-1);
+
+    while(a <= b) {
+        array.push_back(a);
+        a += step;           // could recode to better handle rounding errors
+    }
+    return array;
+}
+
+std::vector<cv::Point> ffSlope(std::vector<double> smoothX,std::vector<double> smoothY,int lengthAmpi){
+
+    std::vector<double> peakX , peakY;
+    findPeak(smoothY,peakX,peakY,lengthAmpi);
+    //qDebug() << peakX;
+    //qDebug() << peakY;
+
+    std::vector<cv::Point> ffPoints(peakX.size()-1);
+
+    for(int t=0 ; t<peakX.size()-1 ; t++){
+        std::vector<double> axisX, axisY;
+        for(int i =0 ;i <= peakX[t+1]-peakX[t];i++){
+            axisX.push_back(peakX[t]+i);
+            axisY.push_back(smoothY[peakX[t]+i]);
+
+        }
+        //qDebug() <<"axisX"<< axisX.size();
+        //qDebug() <<"axisy"<< axisY.size();
+
+        std::vector<double> splitX = linspace(axisX[0],axisX[axisX.size()-1],axisX.size()*10);
+        //qDebug() <<"splitX"<< splitX;
+        tk::spline s;
+        s.set_points(axisX,axisY);
+
+        axisX.clear();
+        axisY.clear();
+        for(int i =0 ;i<splitX.size();i++){
+            axisX.push_back(splitX[i]);
+            axisY.push_back(s(splitX[i]));
+            //qDebug() << axisX[i]<<axisY[i];88
+        }
+
+            double slope = 0.0;
+            double ffPoint = 0.0;
+            if(peakY[t+1] > peakY[t]){
+                for(int i =0 ; i < axisX.size()-1 ; i++){
+                    slope = (axisY[i+1]-axisY[i]) / (axisX[i+1]-axisX[i]);
+                    //qDebug() << slope;
+                    if( slope > ffPoint ){
+                        ffPoint=slope;
+                        ffPoints.at(t).x = axisX[i];
+                        ffPoints.at(t).y = axisY[i];
+                    }
+                }
+            }
+            else if(peakY[t+1] < peakY[t]){
+                for(int i =0 ; i < axisX.size()-1 ; i++){
+                    slope = (axisY[i+1]-axisY[i]) / (axisX[i+1]-axisX[i]);
+                    //qDebug() << slope;
+                    if( slope < ffPoint ){
+                        ffPoint=slope;
+                        ffPoints.at(t).x = axisX[i];
+                        ffPoints.at(t).y = axisY[i];
+                    }
+                }
+            }
+
+    }
 
 
-//}*/
+    return ffPoints;
+}
 
 
 measuring::~measuring()
@@ -425,41 +475,47 @@ void measuring::on_showImg_clicked()
 
 }
 
-
 void measuring::on_showGraph_clicked()
 {
     cv::LineIterator it(image, A, B, 8 ,true);//'true' is left to right ,not order
-    std::vector<cv::Vec3b> buf(it.count);
+    //std::vector<cv::Vec3b> buf(it.count);
     //std::vector<cv::Point> Points(it.count);
     linePoints = new std::vector<cv::Point>(it.count);
+    smooth_linePoints = new std::vector<cv::Point>(it.count);
     //buf.size()=it.count;
 
-    QVector<double> axisY(linePoints->size());
-    QVector<double> axisX(linePoints->size());
+    std::vector<double> axisX;
+    std::vector<double> axisY;
 
     for(int i = 0; i < it.count; i++, ++it)
     {
-        buf[i] = (const cv::Vec3b)*it;
+        //buf[i] = (const cv::Vec3b)*it;
         linePoints->at(i) = it.pos();
+        smooth_linePoints->at(i) = it.pos();
      //   qDebug() << points[i].x<<points[i].y;
     }
 
     for(int i =0;i<linePoints->size();i++){
-        axisX[i] = linePoints->at(i).x; // point.x
-        axisY[i]=image.at<uchar>(linePoints->at(i));// pixel color
-        qDebug() << axisX[i] << axisY[i];
-
+        axisX.push_back(i);                                     // point index
+        axisY.push_back(image.at<uchar>(linePoints->at(i)));    // pixel color
+        //qDebug() << re_linePoints->at(i).x << re_linePoints->at(i).y;
     }
 
     ui->customPlot->addGraph();
-    ui->customPlot->graph(0)->setData(axisX,axisY);
-    ui->customPlot->xAxis->setLabel("X");
-    ui->customPlot->yAxis->setLabel("Y");
-    ui->customPlot->xAxis->setRange(A.x,B.x); // base on X
-    ui->customPlot->yAxis->setRange(0,256); //color 0-255
+    ui->customPlot->graph(0)->setData(QVector<double>::fromStdVector(axisX),QVector<double>::fromStdVector(axisY));
+    ui->customPlot->xAxis->setLabel("Point(x,y) at Index");
+    ui->customPlot->yAxis->setLabel("Pixel Color");
+    ui->customPlot->xAxis->setRange(0,linePoints->size()-1);
+    ui->customPlot->yAxis->setRange(0,255);             //color 0-255
     ui->customPlot->replot();
 
+    ui->customPlot->addGraph();
+    ui->customPlot->graph(1)->setPen(QPen(QColor(255, 100, 0)));
+    ui->customPlot->graph(1)->setLineStyle(QCPGraph::lsNone);
+    ui->customPlot->graph(1)->setScatterStyle(QCPScatterStyle(QCPScatterStyle::ssDisc, 10));
+
     ui->smoothSlider->setEnabled(true);
+    ui->amplitudeSlider->setEnabled(true);
 
 }
 
@@ -496,22 +552,95 @@ void measuring::on_smoothSlider_valueChanged(int value)
         axisY[i] = newAvg[i];
    }*/
 
-    if(value%2!=0 && value!=1){
+    if(value%2!=0 && value!=1){ //Gaussian Smooth
         int MAX_KERNEL_LENGTH = value;
         cv::Mat blur_img;
         for ( int i = 1; i < MAX_KERNEL_LENGTH; i = i + 2 ){
             cv::GaussianBlur(image,blur_img,cv::Size(i,i),0,0);
         }
-        QVector<double> axisX(linePoints->size());
-        QVector<double> axisY(linePoints->size());
+        std::vector<double> axisX;
+        std::vector<double> axisY;
 
         for(int i =0;i<linePoints->size();i++){
-            axisX[i] = linePoints->at(i).x;
-            axisY[i] = blur_img.at<uchar>(linePoints->at(i));
+            axisX.push_back(i);
+            axisY.push_back(blur_img.at<uchar>(linePoints->at(i)));
+            smooth_linePoints->at(i).x = i;
+            smooth_linePoints->at(i).y = blur_img.at<uchar>(linePoints->at(i));
+
+            //qDebug() << re_linePoints->at(i).x << re_linePoints->at(i).y;
         }
 
        //ui->customPlot->graph(0)->setData(QVector<double>::fromStdVector(axisX),QVector<double>::fromStdVector(axisY));
-       ui->customPlot->graph(0)->setData(axisX,axisY);
+       ui->customPlot->graph(0)->setData(QVector<double>::fromStdVector(axisX),QVector<double>::fromStdVector(axisY));
        ui->customPlot->replot();
+
+       findPeak(axisY,axisX,axisY,ui->amplitudeSlider->value());
+
+       ui->customPlot->graph(1)->setData(QVector<double>::fromStdVector(axisX),QVector<double>::fromStdVector(axisY));
+       ui->customPlot->replot();
+
+       std::vector<double> smoothX;
+       std::vector<double> smoothY;
+       for(int i =0;i<smooth_linePoints->size();i++){
+           smoothX.push_back(smooth_linePoints->at(i).x);
+           smoothY.push_back(smooth_linePoints->at(i).y);
+       }
+
+       std::vector<cv::Point> ffPoints = ffSlope(smoothX,smoothY,ui->amplitudeSlider->value()); //ffSlope.x is *INDEX* for linePoints(from user)  ,ffSlope.y is PixColor
+       //for(int i =0;i<ffPoints.size();i++) qDebug() << ffPoints.at(i).x<< ffPoints.at(i).y;
+
+       tmp_pix = mPix;
+       for(int i=0 ;i<ffPoints.size() ;i++){
+           QLine tmp_line;
+           tmp_line.setLine(linePoints->at(ffPoints.at(i).x).x,
+                         linePoints->at(ffPoints.at(i).x).y+4,
+                         linePoints->at(ffPoints.at(i).x).x,
+                         linePoints->at(ffPoints.at(i).x).y-4);
+
+           QPainter *paint = new QPainter(&tmp_pix);
+           paint->setPen(QColor(0,0,255,255));
+           paint->drawLine(tmp_line);
+           delete paint;
+       }
+       ui->imgShow->setPixmap(tmp_pix);
+       ui->imgShow->setAlignment(Qt::AlignCenter);
+
     }
+}
+
+void measuring::on_amplitudeSlider_valueChanged(int value)
+{
+    std::vector<double> smoothX,smoothY;
+    std::vector<double> axisX,axisY;
+    for(int i =0;i<smooth_linePoints->size();i++){
+        smoothX.push_back(smooth_linePoints->at(i).x);
+        smoothY.push_back(smooth_linePoints->at(i).y);
+    }
+
+    std::vector<cv::Point> ffPoints = ffSlope(smoothX,smoothY,value);
+
+    findPeak(smoothY,axisX,axisY,value);
+
+    ui->customPlot->graph(1)->setData(QVector<double>::fromStdVector(axisX),QVector<double>::fromStdVector(axisY));
+    ui->customPlot->replot();
+
+    tmp_pix = mPix;
+    for(int i=0 ;i<ffPoints.size() ;i++){
+        QLine tmp_line;
+        tmp_line.setLine(linePoints->at(ffPoints.at(i).x).x,
+                      linePoints->at(ffPoints.at(i).x).y+4,
+                      linePoints->at(ffPoints.at(i).x).x,
+                      linePoints->at(ffPoints.at(i).x).y-4);
+        /*mLine.setLine(linePoints->at(axisX[i]-A.x).x,
+                      linePoints->at(axisX[i]-A.x).y+10,
+                      linePoints->at(axisX[i]-A.x).x,
+                      linePoints->at(axisX[i]-A.x).y-10);*/
+
+        QPainter *paint = new QPainter(&tmp_pix);
+        paint->setPen(QColor(0,0,255,255));
+        paint->drawLine(tmp_line);
+        delete paint;
+    }
+    ui->imgShow->setPixmap(tmp_pix);
+    ui->imgShow->setAlignment(Qt::AlignCenter);
 }

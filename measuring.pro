@@ -26,11 +26,14 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
         main.cpp \
         measuring.cpp \
-    qcustomplot.cpp
+    qcustomplot.cpp \
+    persistence1d_driver.cpp
 
 HEADERS += \
         measuring.h \
-    qcustomplot.h
+    qcustomplot.h \
+    persistence1d.hpp \
+    spline.h
 
 FORMS += \
         measuring.ui

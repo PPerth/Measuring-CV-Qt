@@ -91,7 +91,7 @@
     </rect>
    </property>
    <property name="text">
-    <string>Graph</string>
+    <string>Show Graph</string>
    </property>
   </widget>
   <widget class="QWidget" name="layoutWidget">
@@ -130,28 +130,6 @@
     </item>
    </layout>
   </widget>
-  <widget class="QSlider" name="smoothSlider">
-   <property name="enabled">
-    <bool>false</bool>
-   </property>
-   <property name="geometry">
-    <rect>
-     <x>670</x>
-     <y>400</y>
-     <width>341</width>
-     <height>22</height>
-    </rect>
-   </property>
-   <property name="minimum">
-    <number>3</number>
-   </property>
-   <property name="maximum">
-    <number>39</number>
-   </property>
-   <property name="orientation">
-    <enum>Qt::Horizontal</enum>
-   </property>
-  </widget>
   <widget class="QCustomPlot" name="customPlot" native="true">
    <property name="geometry">
     <rect>
@@ -161,6 +139,112 @@
      <height>331</height>
     </rect>
    </property>
+  </widget>
+  <widget class="QLabel" name="Smooth">
+   <property name="geometry">
+    <rect>
+     <x>560</x>
+     <y>400</y>
+     <width>64</width>
+     <height>23</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <pointsize>14</pointsize>
+    </font>
+   </property>
+   <property name="text">
+    <string>Smooth</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="Ampitude">
+   <property name="geometry">
+    <rect>
+     <x>561</x>
+     <y>441</y>
+     <width>91</width>
+     <height>23</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <pointsize>14</pointsize>
+    </font>
+   </property>
+   <property name="text">
+    <string>Amplitude</string>
+   </property>
+  </widget>
+  <widget class="QWidget" name="">
+   <property name="geometry">
+    <rect>
+     <x>670</x>
+     <y>400</y>
+     <width>411</width>
+     <height>24</height>
+    </rect>
+   </property>
+   <layout class="QHBoxLayout" name="horizontalLayout_3">
+    <item>
+     <widget class="QSlider" name="smoothSlider">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
+      <property name="minimum">
+       <number>7</number>
+      </property>
+      <property name="maximum">
+       <number>39</number>
+      </property>
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QLabel" name="smooth_value">
+      <property name="text">
+       <string/>
+      </property>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QWidget" name="">
+   <property name="geometry">
+    <rect>
+     <x>670</x>
+     <y>440</y>
+     <width>411</width>
+     <height>24</height>
+    </rect>
+   </property>
+   <layout class="QHBoxLayout" name="horizontalLayout_4">
+    <item>
+     <widget class="QSlider" name="amplitudeSlider">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
+      <property name="minimum">
+       <number>10</number>
+      </property>
+      <property name="maximum">
+       <number>20</number>
+      </property>
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QLabel" name="label">
+      <property name="text">
+       <string/>
+      </property>
+     </widget>
+    </item>
+   </layout>
   </widget>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
@@ -173,5 +257,38 @@
   </customwidget>
  </customwidgets>
  <resources/>
- <connections/>
+ <connections>
+  <connection>
+   <sender>smoothSlider</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>smooth_value</receiver>
+   <slot>setNum(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>989</x>
+     <y>413</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1130</x>
+     <y>415</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>amplitudeSlider</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>label</receiver>
+   <slot>setNum(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>987</x>
+     <y>451</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1113</x>
+     <y>454</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
 </ui>

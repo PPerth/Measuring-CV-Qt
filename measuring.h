@@ -39,9 +39,9 @@ public:
 private:
     Ui::measuring *ui;
 
-    QPainter painter;
+    cv::Mat image;
     QLine mLine;
-    QPixmap mPix,pPix,tmp_pix;
+    QPixmap mPix,tmp_pix;
 
 protected:
     void mousePressEvent(QMouseEvent *event);
@@ -53,6 +53,7 @@ private slots:
     void on_showImg_clicked();
     void on_showGraph_clicked();
     void on_smoothSlider_valueChanged(int value);
+    void on_amplitudeSlider_valueChanged(int value);
 };
 
 
