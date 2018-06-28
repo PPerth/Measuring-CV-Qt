@@ -39,21 +39,27 @@ public:
 private:
     Ui::measuring *ui;
 
-    cv::Mat image;
+    cv::Mat image,blur_img; //blur_img : use in Guassian Smooth
     QLine mLine;
-    QPixmap mPix,tmp_pix;
+    QPixmap mPix,linePix,offsetPix,pointPix,tmp_pix;
 
 protected:
     void mousePressEvent(QMouseEvent *event);
     void mouseMoveEvent(QMouseEvent *event);
     void mouseReleaseEvent(QMouseEvent *event);
-    //void paintEvent(QPaintEvent *event);
+
+    std::vector<double> linspace(double a, double b, int n) ;
+    std::vector<cv::Point3i> ffSlope(std::vector<double> smoothX,std::vector<double> smoothY,int lengthAmpi);
+    void findPeak(std::vector<double> &smoothY,std::vector<double> &outputX,std::vector<double> &outputY,int distanceAmpi);
 
 private slots:
     void on_showImg_clicked();
     void on_showGraph_clicked();
     void on_smoothSlider_valueChanged(int value);
     void on_amplitudeSlider_valueChanged(int value);
+    void on_offsetVal_valueChanged(int value);
+    void on_offsetNum_valueChanged(int value);
+    void on_resultLine_clicked();
 };
 
 
