@@ -15,6 +15,7 @@
 #include <QPainter>
 #include <QWidget>
 
+
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/core/core.hpp>
@@ -33,6 +34,7 @@ public:
 
     bool mousePressed;
     bool drawStarted;
+    QString operation; // "linear" and "circle"
 
     ~measuring();
 
@@ -60,6 +62,11 @@ private slots:
     void on_offsetVal_valueChanged(int value);
     void on_offsetNum_valueChanged(int value);
     void on_resultLine_clicked();
+    void on_line_operation_toggled(bool checked);
+    void on_circle_operation_toggled(bool checked);
+    void on_circle_offsetDeg_valueChanged(int value);
+    void on_circle_offsetNum_valueChanged(int value);
+    void on_resultCircle_clicked();
 };
 
 
